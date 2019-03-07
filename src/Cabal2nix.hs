@@ -17,11 +17,9 @@ import Data.Maybe ( fromMaybe, listToMaybe )
 import Data.Monoid ( (<>) )
 import qualified Distribution.Compat.ReadP as P
 import Distribution.Compiler
-import Distribution.Nixpkgs.Fetch
 import Distribution.Nixpkgs.Haskell
 import Distribution.Nixpkgs.Haskell.FromCabal
 import Distribution.Nixpkgs.Haskell.FromCabal.Flags
-import Distribution.Nixpkgs.Haskell.PackageSourceSpec
 import Distribution.Package ( packageId )
 import Distribution.PackageDescription hiding ( options )
 import Distribution.PackageDescription.Parsec
@@ -118,12 +116,10 @@ main = bracket (return ()) (\() -> hFlush stdout >> hFlush stderr) $ \() ->
   cabal2nix =<< getArgs
 
 cabal2nix' :: Options -> IO Derivation
-cabal2nix' opts@Options{..} = do
-  gpd <- readGenericPackageDescription normal optUrl
-  return $ processPackage opts (Package undefined undefined gpd)
+cabal2nix' opts = processPackage opts <$> readGenericPackageDescription normal (optUrl opts)
 
-processPackage :: Options -> Package -> Derivation
-processPackage Options{..} (Package srcSpec _ gpd) = deriv
+processPackage :: Options -> GenericPackageDescription -> Derivation
+processPackage Options{..} gpd = deriv
   where
     flags :: FlagAssignment
     flags = configureCabalFlags (packageId gpd) `mappend` readFlagList optFlags
@@ -136,7 +132,7 @@ processPackage Options{..} (Package srcSpec _ gpd) = deriv
                 flags
                 []
                 gpd
-            & src .~ DerivationSource "url" "mirror://hackage/" "" "" Nothing
+            & sha256 .~ fromMaybe "" optSha256
             & extraFunctionArgs . contains "inherit stdenv" .~ True
 
 cabal2nix :: [String] -> IO ()

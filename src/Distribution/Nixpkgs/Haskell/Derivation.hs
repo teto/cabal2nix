@@ -5,7 +5,7 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
 module Distribution.Nixpkgs.Haskell.Derivation
-  ( Derivation, nullDerivation, pkgid, revision, src, subpath, isLibrary, isExecutable
+  ( Derivation, nullDerivation, pkgid, revision, sha256, subpath, isLibrary, isExecutable
   , extraFunctionArgs, libraryDepends, executableDepends, testDepends, configureFlags
   , cabalFlags, runHaddock, jailbreak, doCheck, doBenchmark, testTarget, hyperlinkSource, enableSplitObjs
   , enableLibraryProfiling, enableExecutableProfiling, phaseOverrides, editedCabalFile, metaSection
@@ -13,13 +13,13 @@ module Distribution.Nixpkgs.Haskell.Derivation
   )
   where
 
+import Prelude hiding ((<>))
+
 import Control.DeepSeq
 import Control.Lens
-import Data.List
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Set.Lens
-import Distribution.Nixpkgs.Fetch
 import Distribution.Nixpkgs.Haskell.BuildInfo
 import Distribution.Nixpkgs.Haskell.OrphanInstances ( )
 import Distribution.Nixpkgs.Meta
@@ -29,18 +29,14 @@ import GHC.Generics ( Generic )
 import Language.Nix
 import Language.Nix.PrettyPrinting
 
-#if MIN_VERSION_base(4,11,0)
-import Prelude hiding ((<>))
-#endif
-
--- | A represtation of Nix expressions for building Haskell packages.
--- The data type correspond closely to the definition of
--- 'PackageDescription' from Cabal.
+-- | A represtation of Nix expressions for building Haskell packages. The data
+-- type correspond closely to the definition of 'PackageDescription' from
+-- Cabal.
 
 data Derivation = MkDerivation
   { _pkgid                      :: PackageIdentifier
   , _revision                   :: Int
-  , _src                        :: DerivationSource
+  , _sha256                     :: String
   , _subpath                    :: FilePath
   , _isLibrary                  :: Bool
   , _isExecutable               :: Bool
@@ -72,7 +68,7 @@ nullDerivation :: Derivation
 nullDerivation = MkDerivation
   { _pkgid = error "undefined Derivation.pkgid"
   , _revision = error "undefined Derivation.revision"
-  , _src = error "undefined Derivation.src"
+  , _sha256 = error "undefined Derivation.sha256"
   , _subpath = error "undefined Derivation.subpath"
   , _isLibrary = error "undefined Derivation.isLibrary"
   , _isExecutable = error "undefined Derivation.isExecutable"
@@ -114,7 +110,7 @@ instance Pretty Derivation where
     , nest 2 $ vcat
       [ attr "pname"   $ doubleQuotes $ disp (packageName _pkgid)
       , attr "version" $ doubleQuotes $ disp (packageVersion _pkgid)
-      , pPrint _src
+      , onlyIf (_sha256 /= "") $ attr "sha256" $ doubleQuotes (text _sha256)
       , onlyIf (_subpath /= ".") $ attr "postUnpack" postUnpack
       , onlyIf (_revision > 0) $ attr "revision" $ doubleQuotes $ int _revision
       , onlyIf (not (null _editedCabalFile) && _revision > 0) $ attr "editedCabalFile" $ string _editedCabalFile
@@ -145,11 +141,9 @@ instance Pretty Derivation where
       inputs :: Set String
       inputs = Set.unions [ Set.map (view (localName . ident)) _extraFunctionArgs
                           , setOf (dependencies . each . folded . localName . ident) drv
-                          , Set.fromList ["fetch" ++ derivKind _src | derivKind _src /= "" && not isHackagePackage]
                           ]
 
       renderedFlags = [ text "-f" <> (if enable then empty else char '-') <> text (unFlagName f) | (f, enable) <- unFlagAssignment _cabalFlags ]
                       ++ map text (toAscList _configureFlags)
-      isHackagePackage = "mirror://hackage/" `isPrefixOf` derivUrl _src
 
       postUnpack = string $ "sourceRoot+=/" ++ _subpath ++ "; echo source root reset to $sourceRoot"

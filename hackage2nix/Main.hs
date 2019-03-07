@@ -17,7 +17,6 @@ import Data.Maybe
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.String
-import Distribution.Nixpkgs.Fetch
 import Distribution.Nixpkgs.Haskell as Derivation
 import Distribution.Nixpkgs.Haskell.Constraint
 import Distribution.Nixpkgs.Haskell.FromCabal
@@ -152,7 +151,7 @@ main = do
 
           drv :: Derivation
           drv = fromGenericPackageDescription haskellResolver nixpkgsResolver targetPlatform (compilerInfo config) flagAssignment [] descr
-                  & src .~ urlDerivationSource ("mirror://hackage/" ++ display pkgId ++ ".tar.gz") tarballSHA256
+                  & sha256 .~ tarballSHA256
                   & editedCabalFile .~ cabalSHA256
                   & metaSection.platforms %~ (`Set.difference` Map.findWithDefault Set.empty name (unsupportedPlatforms config))
                   & metaSection.hydraPlatforms %~ (if Set.null droppedPlatforms then id else (`Set.difference` droppedPlatforms))

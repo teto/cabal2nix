@@ -2,7 +2,6 @@
 
 module Main ( main ) where
 
-import Distribution.Nixpkgs.Fetch
 import Distribution.Nixpkgs.Haskell.Derivation
 import Distribution.Nixpkgs.Haskell.FromCabal
 import Distribution.Nixpkgs.Haskell.FromCabal.Flags
@@ -52,13 +51,7 @@ testLibrary cabalFile = do
                          (configureCabalFlags (packageId gpd))
                          []
                          gpd
-                       & src .~ DerivationSource
-                                  { derivKind     = "url"
-                                  , derivUrl      = "mirror://hackage/foo.tar.gz"
-                                  , derivRevision = ""
-                                  , derivHash     = "deadbeef"
-                                  , derivSubmodule = Nothing
-                                  }
+                       & sha256 .~ "deadbeef"
                        & extraFunctionArgs %~ Set.union (Set.singleton "inherit stdenv")
   goldenVsFileDiff
     nixFile
