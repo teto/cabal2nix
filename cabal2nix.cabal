@@ -108,21 +108,15 @@ library
   build-depends:      base                 > 4.11
                     , Cabal                > 2.4
                     , aeson                > 1
-                    , ansi-wl-pprint
-                    , bytestring
                     , containers
                     , deepseq              >= 1.4
-                    , directory
                     , distribution-nixpkgs >= 1.2
-                    , filepath
                     , hackage-db           >= 2.0.1
                     , hopenssl             >= 2
-                    , hpack                >= 0.29.6
                     , language-nix
                     , lens
                     , optparse-applicative
                     , pretty               >= 1.1.2
-                    , process
                     , split
                     , text
                     , time
