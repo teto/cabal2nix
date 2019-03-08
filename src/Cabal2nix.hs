@@ -116,7 +116,7 @@ main = bracket (return ()) (\() -> hFlush stdout >> hFlush stderr) $ \() ->
   cabal2nix =<< getArgs
 
 cabal2nix' :: Options -> IO Derivation
-cabal2nix' opts = processPackage opts <$> readGenericPackageDescription normal (optUrl opts)
+cabal2nix' opts = processPackage opts <$> readGenericPackageDescription silent (optUrl opts)
 
 processPackage :: Options -> GenericPackageDescription -> Derivation
 processPackage Options{..} gpd = deriv
