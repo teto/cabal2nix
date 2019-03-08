@@ -3,18 +3,15 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Cabal2nix
-  ( main, cabal2nix, cabal2nix', parseArgs
+  ( main, cabal2nix, parseArgs
   , Options(..)
   )
   where
 
-import Control.Exception ( bracket )
 import Control.Lens
-import Control.Monad
 import Data.List
 import Data.List.Split
 import Data.Maybe ( fromMaybe, listToMaybe )
-import Data.Monoid ( (<>) )
 import qualified Distribution.Compat.ReadP as P
 import Distribution.Compiler
 import Distribution.Nixpkgs.Haskell
@@ -27,11 +24,11 @@ import Distribution.Simple.Utils ( lowercase )
 import Distribution.System
 import Distribution.Text
 import Distribution.Verbosity
+import GHC.IO.Encoding ( setLocaleEncoding, utf8 )
 import Language.Nix
 import Options.Applicative
 import Paths_cabal2nix ( version )
 import System.Environment ( getArgs )
-import System.IO ( hFlush, stdout, stderr )
 import Text.PrettyPrint.HughesPJClass ( prettyShow )
 
 data Options = Options
@@ -95,11 +92,9 @@ parsePlatform = parsePlatformParts . splitOn "-"
 
 parsePlatformParts :: [String] -> Maybe Platform
 parsePlatformParts = \case
-  [arch, os] ->
-    Just $ Platform (parseArch arch) (parseOS os)
-  (arch : _ : osParts) ->
-    Just $ Platform (parseArch arch) $ parseOS $ intercalate "-" osParts
-  _ -> Nothing
+  [arch, os]           -> Just $ Platform (parseArch arch) (parseOS os)
+  (arch : _ : osParts) -> Just $ Platform (parseArch arch) $ parseOS $ intercalate "-" osParts
+  _                    -> Nothing
 
 pinfo :: ParserInfo Options
 pinfo = info
@@ -112,11 +107,13 @@ pinfo = info
         )
 
 main :: IO ()
-main = bracket (return ()) (\() -> hFlush stdout >> hFlush stderr) $ \() ->
-  cabal2nix =<< getArgs
+main = setLocaleEncoding utf8 >> getArgs >>= parseArgs >>= cabal2nix >>= putStrLn . prettyShow
 
-cabal2nix' :: Options -> IO Derivation
-cabal2nix' opts = processPackage opts <$> readGenericPackageDescription silent (optUrl opts)
+parseArgs :: [String] -> IO Options
+parseArgs = handleParseResult . execParserPure defaultPrefs pinfo
+
+cabal2nix :: Options -> IO Derivation
+cabal2nix opts = processPackage opts <$> readGenericPackageDescription silent (optUrl opts)
 
 processPackage :: Options -> GenericPackageDescription -> Derivation
 processPackage Options{..} gpd = deriv
@@ -134,12 +131,6 @@ processPackage Options{..} gpd = deriv
                 gpd
             & sha256 .~ fromMaybe "" optSha256
             & extraFunctionArgs . contains "inherit stdenv" .~ True
-
-cabal2nix :: [String] -> IO ()
-cabal2nix = parseArgs >=> cabal2nix' >=> putStrLn . prettyShow
-
-parseArgs :: [String] -> IO Options
-parseArgs = handleParseResult . execParserPure defaultPrefs pinfo
 
 -- Utils
 

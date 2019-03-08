@@ -16,6 +16,7 @@ import Distribution.PackageDescription.Parsec
 import Distribution.System
 import Distribution.Verbosity
 import Distribution.Version
+import GHC.IO.Encoding ( setLocaleEncoding, utf8 )
 import Language.Nix
 import System.Directory
 import System.FilePath
@@ -26,10 +27,7 @@ import Text.PrettyPrint.HughesPJClass
 
 main :: IO ()
 main = do
-  -- TODO: Run this test with all kinds of setLocaleEncoding values to ensure we don't
-  --       depend on the system environment: https://github.com/NixOS/cabal2nix/issues/333.
-  --
-  -- TODO: Run this test without $HOME defined to ensure that we don't need that variable.
+  setLocaleEncoding utf8
   cabal2nix <- findExecutable "cabal2nix" >>= maybe (fail "cannot find 'cabal2nix' in $PATH") return
   testCases <- listDirectoryFilesBySuffix ".cabal" "test/golden-test-cases"
   defaultMain $ testGroup "regression-tests"
@@ -86,7 +84,7 @@ testExecutable exe cabalFile = do
     (\ref new -> ["diff", "-u", ref, new])
     goldenFile
     nixFile
-    (callCommand (unwords ["env LANG=en_US.UTF-8", exe, "--sha256=deadbeef", "--system=x86_64-linux", "--compiler=ghc-8.2", "--", cabalFile, ">"++nixFile]))
+    (callCommand (unwords ["env -i", exe, "--sha256=deadbeef", "--system=x86_64-linux", "--compiler=ghc-8.2", "--", cabalFile, ">"++nixFile]))
 
 -------------------------------------------------------------------------------
 -- * Helper functions
