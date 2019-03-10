@@ -106,6 +106,7 @@ library
   other-modules:      Paths_cabal2nix
   hs-source-dirs:     src
   build-depends:      base                 > 4.11
+                    , bytestring
                     , Cabal                > 2.4
                     , aeson                > 1
                     , containers

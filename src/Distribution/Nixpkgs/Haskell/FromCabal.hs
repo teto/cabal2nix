@@ -100,9 +100,7 @@ fromPackageDescription haskellResolver nixpkgsResolver missingDeps flags Package
     & enableSeparateDataOutput .~ not (null dataFiles)
     & subpath .~ "."
     & phaseOverrides .~ mempty
-    & editedCabalFile .~ (if xrev > 0
-                             then fromMaybe (error (display package ++ ": X-Cabal-File-Hash field is missing")) (lookup "X-Cabal-File-Hash" customFieldsPD)
-                             else "")
+    & editedCabalFile .~ (if xrev > 0 then error "editedCabalFile must be set" else "")
     & metaSection .~ ( Nix.nullMeta
                      & Nix.homepage .~ homepage
                      & Nix.description .~ synopsis

@@ -35,7 +35,7 @@ main = do
     , testGroup "cabal2nix executable" (map (testExecutable cabal2nix) testCases)
     ]
 
-testLibrary :: String -> TestTree
+testLibrary :: FilePath -> TestTree
 testLibrary cabalFile = do
   let nixFile = cabalFile `replaceExtension` "nix"
       goldenFile = nixFile `addExtension` "golden"

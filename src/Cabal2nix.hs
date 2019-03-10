@@ -9,23 +9,27 @@ module Cabal2nix
   where
 
 import Control.Lens
+import qualified Data.ByteString as BS
 import Data.List
 import Data.List.Split
 import Data.Maybe ( fromMaybe, listToMaybe )
 import qualified Distribution.Compat.ReadP as P
 import Distribution.Compiler
+import Distribution.Nixpkgs.Hashes
 import Distribution.Nixpkgs.Haskell
 import Distribution.Nixpkgs.Haskell.FromCabal
 import Distribution.Nixpkgs.Haskell.FromCabal.Flags
 import Distribution.Package ( packageId )
 import Distribution.PackageDescription hiding ( options )
 import Distribution.PackageDescription.Parsec
+import Distribution.Parsec.ParseResult
 import Distribution.Simple.Utils ( lowercase )
 import Distribution.System
 import Distribution.Text
 import Distribution.Verbosity
 import GHC.IO.Encoding ( setLocaleEncoding, utf8 )
 import Language.Nix
+import OpenSSL.Digest
 import Options.Applicative
 import Paths_cabal2nix ( version )
 import System.Environment ( getArgs )
@@ -113,24 +117,24 @@ parseArgs :: [String] -> IO Options
 parseArgs = handleParseResult . execParserPure defaultPrefs pinfo
 
 cabal2nix :: Options -> IO Derivation
-cabal2nix opts = processPackage opts <$> readGenericPackageDescription silent (optUrl opts)
+cabal2nix Options {..} = do
+  buf <- BS.readFile optUrl
+  gpd <- parseString parseGenericPackageDescription silent optUrl buf
+  let flags :: FlagAssignment
+      flags = configureCabalFlags (packageId gpd) `mappend` readFlagList optFlags
 
-processPackage :: Options -> GenericPackageDescription -> Derivation
-processPackage Options{..} gpd = deriv
-  where
-    flags :: FlagAssignment
-    flags = configureCabalFlags (packageId gpd) `mappend` readFlagList optFlags
-
-    deriv :: Derivation
-    deriv = fromGenericPackageDescription (const True)
-                (\i -> Just (binding # (i, path # [ident # "pkgs", i])))
-                optSystem
-                (unknownCompilerInfo optCompiler NoAbiTag)
-                flags
-                []
-                gpd
-            & sha256 .~ fromMaybe "" optSha256
-            & extraFunctionArgs . contains "inherit stdenv" .~ True
+      deriv :: Derivation
+      deriv = fromGenericPackageDescription (const True)
+                  (\i -> Just (binding # (i, path # [ident # "pkgs", i])))
+                  optSystem
+                  (unknownCompilerInfo optCompiler NoAbiTag)
+                  flags
+                  []
+                  gpd
+              & sha256 .~ fromMaybe "" optSha256
+              & editedCabalFile .~ printSHA256 (digest (digestByName "sha256") buf)
+              & extraFunctionArgs . contains "inherit stdenv" .~ True
+  return deriv
 
 -- Utils
 
