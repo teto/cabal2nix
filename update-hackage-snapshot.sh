@@ -2,7 +2,7 @@
 
 set -eu -o pipefail
 
-rev=$( git ls-remote --heads git://github.com/commercialhaskell/all-cabal-hashes.git hackage \
+rev=$( git ls-remote --heads https://github.com/commercialhaskell/all-cabal-hashes.git hackage \
      | cut -f1
      )
 url="https://github.com/commercialhaskell/all-cabal-hashes/archive/$rev.tar.gz"
